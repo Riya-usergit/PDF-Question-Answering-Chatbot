@@ -1,0 +1,23 @@
+# Environment files
+.env
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Python caching
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local Database & Mock Storage (to avoid committing test data)
+backend/database.db
+backend/local_storage/
+backend/faiss_index/
+
+# System specific files
+.DS_Store
+Thumbs.db
