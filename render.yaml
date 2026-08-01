@@ -1,0 +1,33 @@
+services:
+  # 1. FastAPI Backend Web Service
+  - type: web
+    name: pdf-qa-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false # Prompt user to fill this in during deploy
+      - key: SUPABASE_URL
+        sync: false # Prompt user
+      - key: SUPABASE_KEY
+        sync: false # Prompt user
+      - key: SUPABASE_BUCKET_NAME
+        sync: false # Prompt user
+      - key: LOCAL_MOCK_STORAGE
+        value: "True" # Default fallback local storage, set to False once Supabase keys are active
+      - key: DATABASE_NAME
+        value: "database.db"
+
+  # 2. Streamlit Frontend Web Service
+  - type: web
+    name: pdf-qa-frontend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run frontend/app.py --server.port $PORT --server.address 0.0.0.0
+    envVars:
+      - key: BACKEND_URL
+        fromService:
+          name: pdf-qa-backend
+          type: web
+          property: url # Automatically link frontend Requests to the backend public URL
