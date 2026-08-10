@@ -1,56 +1,43 @@
 import os
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import field_validator
+from dotenv import load_dotenv
 
-class Settings(BaseSettings):
-    # Gemini API Credentials
-    GEMINI_API_KEY: str
+# Find the project root directory where the '.env' file is located
+# File path: project_root/backend/config/settings.py -> project_root
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 
-    # Supabase Storage Settings
-    SUPABASE_URL: str = ""
-    SUPABASE_KEY: str = ""
-    SUPABASE_BUCKET_NAME: str = "pdf-bot-bucket"
+class Settings:
+    # 1. Google Gemini API Credentials
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
-    # Mock settings
-    LOCAL_MOCK_STORAGE: bool = True
+    # 2. Supabase Storage Credentials
+    SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+    SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+    SUPABASE_BUCKET_NAME = os.getenv("SUPABASE_BUCKET_NAME", "pdf-bot-bucket")
 
-    # Database file name
-    DATABASE_NAME: str = "database.db"
+    # 3. Toggle to run offline using a local storage folder instead of Supabase
+    # Standardizes the string from environment to a Python boolean
+    _mock_env = os.getenv("LOCAL_MOCK_STORAGE", "True")
+    LOCAL_MOCK_STORAGE = _mock_env.lower() in ("true", "1", "yes")
 
-    # Base Directory paths
-    @property
-    def base_dir(self) -> str:
-        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # 4. Folder paths inside the backend directory
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # project_root/backend
+    DATABASE_NAME = "database.db"
 
     @property
     def db_path(self) -> str:
-        return os.path.join(self.base_dir, self.DATABASE_NAME)
+        # Path to the SQLite database file: backend/database.db
+        return os.path.join(self.BASE_DIR, self.DATABASE_NAME)
 
     @property
     def local_storage_dir(self) -> str:
-        return os.path.join(self.base_dir, "local_storage")
+        # Path to local storage folder for PDF uploads: backend/local_storage
+        return os.path.join(self.BASE_DIR, "local_storage")
 
     @property
     def faiss_index_dir(self) -> str:
-        return os.path.join(self.base_dir, "faiss_index")
+        # Path to the directory where FAISS indexes will be saved: backend/faiss_index
+        return os.path.join(self.BASE_DIR, "faiss_index")
 
-    # Load from .env file at the project root level
-    model_config = SettingsConfigDict(
-        env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), ".env"),
-        env_file_encoding="utf-8",
-        extra="ignore"
-    )
-
-    @field_validator("GEMINI_API_KEY")
-    @classmethod
-    def validate_gemini_key(cls, v: str) -> str:
-        if not v or v == "your_gemini_api_key_here":
-            raise ValueError("GEMINI_API_KEY must be configured with a valid Google Gemini API key.")
-        return v
-
-# Instantiate settings
-try:
-    settings = Settings()
-except Exception as e:
-    print(f"[Configuration Error] Failed to load configuration: {e}")
-    raise e
+# Instantiate a single config settings object to import elsewhere
+settings = Settings()

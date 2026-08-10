@@ -1,358 +1,181 @@
-import streamlit as pd_qa_streamlit
+import streamlit as st
 import requests
 import os
 import time
 
-# Set page title and layout
-pd_qa_streamlit.set_page_config(
+# Set up browser page options
+st.set_page_config(
     page_title="AI PDF QA Chatbot",
     page_icon="🤖",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-# Backend API configuration
+# Backend API server URL connection
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://127.0.0.1:8000")
 
-# Inject Custom CSS for Premium UI styling
-pd_qa_streamlit.markdown("""
-    <style>
-        /* Import premium Outfit font */
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
-        
-        html, body, [class*="css"] {
-            font-family: 'Outfit', sans-serif;
-        }
+# Render header text
+st.title("🤖 AI PDF Question Answering Chatbot")
+st.write("Upload PDF documents and ask natural language questions. All answers are grounded strictly in the PDF text using RAG (Retrieval-Augmented Generation).")
 
-        /* App-wide theme refinements */
-        .reportview-container {
-            background-color: #0F172A;
-        }
+# --- Helper Functions to Talk to Backend API ---
 
-        /* Title styling with elegant gradient */
-        .title-gradient {
-            background: linear-gradient(135deg, #a78bfa 0%, #f472b6 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            font-size: 3rem;
-            font-weight: 700;
-            margin-bottom: 0.2rem;
-            padding-top: 10px;
-        }
-
-        .subtitle-text {
-            color: #94A3B8;
-            font-size: 1.1rem;
-            margin-bottom: 2rem;
-            font-weight: 300;
-        }
-
-        /* Sidebar customized cards */
-        .sidebar-section {
-            background: rgba(30, 41, 59, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-
-        .sidebar-header {
-            color: #E2E8F0;
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 10px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding-bottom: 5px;
-        }
-
-        /* Document list items */
-        .doc-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: rgba(15, 23, 42, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            padding: 8px 12px;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            font-size: 0.9rem;
-        }
-
-        .doc-name {
-            color: #CBD5E1;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 180px;
-        }
-
-        /* Custom chat bubble design */
-        .chat-bubble {
-            padding: 16px 20px;
-            border-radius: 16px;
-            margin-bottom: 15px;
-            max-width: 85%;
-            line-height: 1.6;
-            font-size: 1rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-
-        .user-bubble {
-            background-color: #312E81;
-            color: #F8FAFC;
-            margin-left: auto;
-            border-bottom-right-radius: 4px;
-            border: 1px solid #4338CA;
-        }
-
-        .assistant-bubble {
-            background-color: #1E293B;
-            color: #F1F5F9;
-            margin-right: auto;
-            border-bottom-left-radius: 4px;
-            border: 1px solid #334155;
-        }
-
-        /* Source citation badge pills */
-        .citation-container {
-            margin-top: 10px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-
-        .citation-badge {
-            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-            color: #FFFFFF !important;
-            padding: 4px 10px;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        /* Welcome card */
-        .welcome-card {
-            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            padding: 24px;
-            border-radius: 16px;
-            margin-bottom: 2rem;
-            text-align: center;
-        }
-        
-        .welcome-title {
-            color: #F1F5F9;
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 10px;
-        }
-
-        .welcome-desc {
-            color: #94A3B8;
-            max-width: 600px;
-            margin: 0 auto 20px auto;
-            line-height: 1.5;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
-# Helper function to query API documents
 def get_uploaded_documents():
+    """Queries the backend to get a list of all indexed PDF documents."""
     try:
         response = requests.get(f"{BACKEND_URL}/documents")
         if response.status_code == 200:
             return response.json()
-        return []
     except Exception as e:
-        pd_qa_streamlit.sidebar.error(f"Could not connect to backend: {e}")
-        return []
+        st.sidebar.error(f"Cannot connect to backend server: {e}")
+    return []
 
-# Helper function to delete document
-def delete_document(doc_id):
+def upload_document(file_name, file_bytes):
+    """Sends a PDF file to the backend to be uploaded and indexed."""
     try:
-        res = requests.delete(f"{BACKEND_URL}/document/{doc_id}")
-        return res.status_code == 200
+        files = {"file": (file_name, file_bytes, "application/pdf")}
+        response = requests.post(f"{BACKEND_URL}/upload", files=files)
+        return response.status_code == 201
     except Exception as e:
-        pd_qa_streamlit.sidebar.error(f"Error deleting file: {e}")
-        return False
+        st.sidebar.error(f"File upload failed: {e}")
+    return False
 
-# Helper function to get history
+def delete_document(doc_id):
+    """Asks the backend to delete a PDF and remove its chunks from FAISS."""
+    try:
+        response = requests.delete(f"{BACKEND_URL}/document/{doc_id}")
+        return response.status_code == 200
+    except Exception as e:
+        st.sidebar.error(f"Document deletion failed: {e}")
+    return False
+
 def get_chat_history():
+    """Fetches past QA interactions from the SQLite database."""
     try:
         response = requests.get(f"{BACKEND_URL}/history")
         if response.status_code == 200:
             return response.json()
-        return []
     except Exception:
-        return []
+        pass
+    return []
 
-# Helper function to clear history
 def clear_chat_history():
+    """Tells the backend to wipe the SQLite conversation log."""
     try:
-        res = requests.delete(f"{BACKEND_URL}/history")
-        return res.status_code == 200
+        response = requests.delete(f"{BACKEND_URL}/history")
+        return response.status_code == 200
     except Exception:
-        return False
+        pass
+    return False
 
-# Header rendering
-pd_qa_streamlit.markdown('<h1 class="title-gradient">AI PDF QA Chatbot</h1>', unsafe_allow_html=True)
-pd_qa_streamlit.markdown('<p class="subtitle-text">Production-ready Retrieval-Augmented Generation (RAG) chatbot using FastAPI, Streamlit, and Gemini.</p>', unsafe_allow_html=True)
 
-# ----------------- SIDEBAR -----------------
-pd_qa_streamlit.sidebar.markdown('<div class="sidebar-header">📤 UPLOAD DOCUMENTS</div>', unsafe_allow_html=True)
+# ----------------- SIDEBAR UI: FILE MANAGEMENT -----------------
 
-# PDF Uploader
-uploaded_files = pd_qa_streamlit.sidebar.file_uploader(
-    "Choose PDF files to analyze",
+st.sidebar.header("📤 Document Manager")
+
+# Streamlit file upload widget
+uploaded_files = st.sidebar.file_uploader(
+    "Choose PDF files to upload:",
     type=["pdf"],
-    accept_multiple_files=True,
-    help="Upload multi-page PDFs to index in FAISS"
+    accept_multiple_files=True
 )
 
-# Process uploads
+# If the user dragged/selected new files, send them to the backend API
 if uploaded_files:
     for file in uploaded_files:
-        # Check if already processed to avoid repeating on re-render
-        session_upload_key = f"uploaded_{file.name}"
-        if session_upload_key not in pd_qa_streamlit.session_state:
-            with pd_qa_streamlit.spinner(f"Uploading & indexing '{file.name}'..."):
-                try:
-                    files = {"file": (file.name, file.getvalue(), "application/pdf")}
-                    response = requests.post(f"{BACKEND_URL}/upload", files=files)
-                    if response.status_code == 201:
-                        pd_qa_streamlit.session_state[session_upload_key] = True
-                        pd_qa_streamlit.sidebar.success(f"Indexed '{file.name}'!")
-                        time.sleep(1)
-                        pd_qa_streamlit.rerun()
-                    else:
-                        detail = response.json().get("detail", "Error processing file.")
-                        pd_qa_streamlit.sidebar.error(f"Failed to process '{file.name}': {detail}")
-                except Exception as e:
-                    pd_qa_streamlit.sidebar.error(f"Error communicating with server: {e}")
+        session_key = f"uploaded_{file.name}"
+        if session_key not in st.session_state:
+            with st.sidebar.spinner(f"Uploading & indexing '{file.name}'..."):
+                if upload_document(file.name, file.getvalue()):
+                    st.session_state[session_key] = True
+                    st.sidebar.success(f"Indexed '{file.name}' successfully!")
+                    time.sleep(1)
+                    st.rerun()
 
-# Display Documents List
-pd_qa_streamlit.sidebar.markdown('<div class="sidebar-header">📚 CURRENTLY INDEXED</div>', unsafe_allow_html=True)
+st.sidebar.write("---")
+st.sidebar.header("📚 Currently Indexed PDFs")
+
+# Retrieve the list of active documents from backend and render them
 docs = get_uploaded_documents()
-
 if docs:
     for doc in docs:
-        col1, col2 = pd_qa_streamlit.sidebar.columns([6, 1])
+        col1, col2 = st.sidebar.columns([5, 1])
         with col1:
-            pd_qa_streamlit.markdown(f"""
-                <div class="doc-item">
-                    <span class="doc-name" title="{doc['filename']}">{doc['filename']}</span>
-                </div>
-            """, unsafe_allow_html=True)
+            st.text(doc["filename"])
         with col2:
-            # We use an unique key for each delete button
-            if pd_qa_streamlit.button("🗑️", key=f"del_{doc['id']}", help=f"Delete '{doc['filename']}'"):
-                with pd_qa_streamlit.spinner("Deleting..."):
+            # Custom trash button to trigger deletion
+            if st.button("🗑️", key=f"del_{doc['id']}", help="Remove this PDF from vector store"):
+                with st.spinner("Deleting document..."):
                     if delete_document(doc['id']):
-                        pd_qa_streamlit.sidebar.success(f"Deleted '{doc['filename']}'")
-                        # Clear upload session flag if present
-                        pd_qa_streamlit.session_state.pop(f"uploaded_{doc['filename']}", None)
+                        st.sidebar.success("Deleted!")
+                        st.session_state.pop(f"uploaded_{doc['filename']}", None)
                         time.sleep(1)
-                        pd_qa_streamlit.rerun()
-                    else:
-                        pd_qa_streamlit.sidebar.error("Failed to delete.")
+                        st.rerun()
 else:
-    pd_qa_streamlit.sidebar.info("No documents uploaded yet. Please upload a PDF to get started.")
+    st.sidebar.info("No documents uploaded yet.")
 
-# Sidebar Settings
-pd_qa_streamlit.sidebar.markdown('<div class="sidebar-header">⚙️ CONTROLS</div>', unsafe_allow_html=True)
-if pd_qa_streamlit.sidebar.button("🧹 Clear Chat History", use_container_width=True):
+st.sidebar.write("---")
+st.sidebar.header("⚙️ Chat Actions")
+if st.sidebar.button("🧹 Clear Chat History", use_container_width=True):
     if clear_chat_history():
-        pd_qa_streamlit.sidebar.success("Chat history cleared!")
+        st.sidebar.success("Chat history cleared!")
         time.sleep(1)
-        pd_qa_streamlit.rerun()
-    else:
-        pd_qa_streamlit.sidebar.error("Failed to clear chat history.")
+        st.rerun()
 
 
-# ----------------- MAIN CHAT INTERFACE -----------------
+# ----------------- MAIN UI: CHAT WINDOW -----------------
 
-# Fetch history on render
-history = get_chat_history()
+# Fetch past conversation messages
+chat_history = get_chat_history()
 
-# If history is empty and no documents uploaded, render welcome card
-if not history:
-    pd_qa_streamlit.markdown("""
-        <div class="welcome-card">
-            <div class="welcome-title">Welcome to the AI PDF Chatbot! 🚀</div>
-            <p class="welcome-desc">
-                This app uses Retrieval-Augmented Generation (RAG) to answer questions directly from your PDFs. 
-                Answers are grounded strictly in the document content to avoid hallucinations.
-            </p>
-            <div style="font-size: 0.95rem; color: #64748B;">
-                👈 Start by uploading your PDF files in the sidebar. Once indexed, type your question below!
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+# Render a helpful welcome panel if there's no chat history yet
+if not chat_history:
+    st.info("👈 Upload PDF documents in the sidebar, then ask a question below to start chatting!")
 
-# Render Chat History
-for message in history:
-    # Render User bubble
-    pd_qa_streamlit.markdown(
-        f'<div class="chat-bubble user-bubble"><b>You:</b><br>{message["question"]}</div>',
-        unsafe_allow_html=True
-    )
+# Render conversation history using Streamlit's native chat UI blocks
+for message in chat_history:
+    with st.chat_message("user"):
+        st.write(message["question"])
     
-    # Render Assistant bubble with references
-    sources_html = ""
-    if message.get("sources"):
-        badges = []
-        for src in message["sources"]:
-            badges.append(f'<span class="citation-badge">📄 {src["filename"]} (Pg {src["page"]})</span>')
-        sources_html = f'<div class="citation-container">{" ".join(badges)}</div>'
+    with st.chat_message("assistant"):
+        st.write(message["answer"])
+        
+        # Display source citations underneath the answer
+        if message.get("sources"):
+            st.write("**Sources:**")
+            badges = [f"`📄 {s['filename']} (Pg {s['page']})`" for s in message["sources"]]
+            st.markdown(" ".join(badges))
 
-    pd_qa_streamlit.markdown(
-        f'<div class="chat-bubble assistant-bubble"><b>Assistant:</b><br>{message["answer"]}{sources_html}</div>',
-        unsafe_allow_html=True
-    )
-
-# Accept User Question
-user_query = pd_qa_streamlit.chat_input("Ask a question about the uploaded documents...")
+# Accept user input from the chat box
+user_query = st.chat_input("Ask a question about the uploaded PDFs...")
 
 if user_query:
-    # 1. Render user question instantly
-    pd_qa_streamlit.markdown(
-        f'<div class="chat-bubble user-bubble"><b>You:</b><br>{user_query}</div>',
-        unsafe_allow_html=True
-    )
-    
-    # 2. Query backend and render assistant response with spinner
-    with pd_qa_streamlit.spinner("Analyzing documents & generating answer..."):
+    # 1. Render user message instantly in the UI
+    with st.chat_message("user"):
+        st.write(user_query)
+        
+    # 2. Send query to API server with a progress spinner
+    with st.spinner("Analyzing documents & generating answer..."):
         try:
-            response = requests.post(
-                f"{BACKEND_URL}/ask",
-                json={"question": user_query}
-            )
-            
+            response = requests.post(f"{BACKEND_URL}/ask", json={"question": user_query})
             if response.status_code == 200:
                 data = response.json()
                 answer = data["answer"]
                 sources = data["sources"]
                 
-                # Format sources HTML
-                sources_html = ""
-                if sources:
-                    badges = []
-                    for src in sources:
-                        badges.append(f'<span class="citation-badge">📄 {src["filename"]} (Pg {src["page"]})</span>')
-                    sources_html = f'<div class="citation-container">{" ".join(badges)}</div>'
+                # Render assistant reply
+                with st.chat_message("assistant"):
+                    st.write(answer)
+                    
+                    # If sources exist, render page badges
+                    if sources:
+                        st.write("**Sources:**")
+                        badges = [f"`📄 {s['filename']} (Pg {s['page']})`" for s in sources]
+                        st.markdown(" ".join(badges))
                 
-                # Render response
-                pd_qa_streamlit.markdown(
-                    f'<div class="chat-bubble assistant-bubble"><b>Assistant:</b><br>{answer}{sources_html}</div>',
-                    unsafe_allow_html=True
-                )
-                
-                # Refresh page to maintain scroll positioning and sync session storage state
-                pd_qa_streamlit.rerun()
-                
+                # Refresh page to maintain view state and scroll positions
+                st.rerun()
             else:
                 error_msg = response.json().get("detail", "Unknown server error.")
-                pd_qa_streamlit.error(f"Backend Server Error: {error_msg}")
+                st.error(f"Backend Server Error: {error_msg}")
         except Exception as e:
-            pd_qa_streamlit.error(f"Error querying backend API: {e}")
+            st.error(f"Failed to communicate with API server: {e}")
