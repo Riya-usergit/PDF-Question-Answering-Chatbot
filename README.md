@@ -1,8 +1,8 @@
-# Production-Ready AI PDF Question Answering Chatbot (Supabase Storage Edition)
+# Production-Ready AI PDF Question Answering Chatbot (Beginner Edition)
 
 This project is a high-performance, production-quality AI PDF Question Answering Chatbot built with Python, FastAPI, Streamlit, LangChain, and Google Gemini API. It implements Retrieval-Augmented Generation (RAG) using HuggingFace sentence embeddings and a FAISS vector database.
 
-This version is configured to store PDF documents securely inside **Supabase Storage**.
+This version is optimized for beginners, using clear linear coding patterns, consolidated single-file backend endpoints, and native Streamlit chat bubbles.
 
 ---
 
@@ -15,7 +15,7 @@ flowchart TD
     end
 
     subgraph Backend [FastAPI Server]
-        API[API Endpoints]
+        API[API Endpoints backend/main.py]
         PDF[PDF Processor PyMuPDF]
         Embed[Embeddings Generator HuggingFace]
         FAISS[FAISS Vector Store]
@@ -55,33 +55,24 @@ pdf-qa-chatbot/
 │
 ├── backend/
 │   ├── __init__.py
-│   ├── main.py                 # FastAPI bootstrap entrypoint
+│   ├── main.py                 # FastAPI bootstrap, schemas & endpoints
 │   ├── config/
 │   │   ├── __init__.py
-│   │   └── settings.py         # Configuration loader & Pydantic validation
+│   │   └── settings.py         # Configuration loader (dotenv & os.getenv)
 │   ├── database/
 │   │   ├── __init__.py
-│   │   ├── connection.py       # SQLite connection context manager
-│   │   └── models.py           # SQLite schemas & CRUD operations
-│   ├── models/
-│   │   ├── __init__.py
-│   │   └── schemas.py          # API Pydantic schemas (Request/Response)
-│   ├── routers/
-│   │   ├── __init__.py
-│   │   ├── ask.py              # POST /ask (RAG & Gemini pipeline)
-│   │   ├── history.py          # GET/DELETE /history (conversation logs)
-│   │   └── upload.py           # POST /upload, GET /documents, DELETE /document/{id}
+│   │   └── models.py           # SQLite database connection & metadata queries
 │   ├── services/
 │   │   ├── __init__.py
-│   │   └── storage_service.py  # Supabase Storage uploader (with Local Disk mock fallback)
+│   │   └── storage_service.py  # Supabase Storage client (with local mock fallback)
 │   └── rag/
 │       ├── __init__.py
-│       ├── pdf_processor.py    # PyMuPDF parser and text character-splitter
-│       ├── embeddings.py       # HuggingFace sentence transformer loading
+│       ├── pdf_processor.py    # PyMuPDF parser page-by-page character character-splitter
+│       ├── embeddings.py       # HuggingFace sentence transformer loader
 │       └── vector_store.py     # Local FAISS index load/save and deletion helper
 │
 ├── frontend/
-│   └── app.py                  # Streamlit application UI
+│   └── app.py                  # Streamlit application (using native st.chat_message)
 │
 ├── .env                        # Local configuration secrets (gitignored)
 ├── .env.example                # Example configuration template
@@ -178,6 +169,8 @@ If you wish to switch from local disk mock storage to live Supabase Storage:
 ---
 
 ## 📡 REST API Documentation
+
+All API endpoints are consolidated in `backend/main.py` for absolute clarity:
 
 ### 📤 `POST /upload`
 Uploads a new PDF document.
