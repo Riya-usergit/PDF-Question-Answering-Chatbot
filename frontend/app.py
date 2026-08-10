@@ -84,7 +84,7 @@ if uploaded_files:
     for file in uploaded_files:
         session_key = f"uploaded_{file.name}"
         if session_key not in st.session_state:
-            with st.sidebar.spinner(f"Uploading & indexing '{file.name}'..."):
+            with st.spinner(f"Uploading & indexing '{file.name}'..."):
                 if upload_document(file.name, file.getvalue()):
                     st.session_state[session_key] = True
                     st.sidebar.success(f"Indexed '{file.name}' successfully!")
